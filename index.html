@@ -2,202 +2,130 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GHOST-CORD // PROXIMITY_CHAT</title>
+    <title>GHOST-CORD // V6_STABLE</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --bg-dark: #313338; --bg-sidebar: #2b2d31; --bg-nav: #1e1f22;
-            --text-main: #dbdee1; --text-muted: #949ba4; --accent: #5865f2; --success: #23a559;
-        }
-        body, html { margin: 0; padding: 0; height: 100vh; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background: var(--bg-dark); color: var(--text-main); overflow: hidden; }
-        
-        /* SIGNUP OVERLAY */
-        #auth-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center; z-index: 999; backdrop-filter: blur(10px); }
-        .auth-card { background: var(--bg-dark); padding: 40px; border-radius: 8px; width: 400px; box-shadow: 0 8px 16px rgba(0,0,0,0.5); text-align: center; }
-        .auth-card h2 { margin-top: 0; color: #fff; }
-        .input-group { margin-bottom: 20px; text-align: left; }
-        .input-group label { display: block; color: var(--text-muted); font-size: 12px; font-weight: bold; margin-bottom: 8px; text-transform: uppercase; }
-        input[type="text"], input[type="password"] { width: 100%; padding: 10px; background: #1e1f22; border: none; border-radius: 4px; color: #fff; box-sizing: border-box; }
-        .pfp-upload { border: 2px dashed #444; padding: 10px; cursor: pointer; border-radius: 4px; margin-bottom: 20px; }
-        
-        /* MAIN LAYOUT */
-        .app-container { display: flex; height: 100vh; }
-        .sidebar { width: 72px; background: var(--bg-nav); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 8px; }
-        .server-icon { width: 48px; height: 48px; background: var(--bg-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; position: relative; }
-        .server-icon:hover { border-radius: 30%; background: var(--accent); }
-        .channel-list { width: 240px; background: var(--bg-sidebar); display: flex; flex-direction: column; }
-        .chat-area { flex-grow: 1; display: flex; flex-direction: column; background: var(--bg-dark); }
-        
-        /* CHAT BOX */
-        #messages { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
-        .msg-row { display: flex; gap: 15px; }
-        .msg-pfp { width: 40px; height: 40px; border-radius: 50%; background-size: cover; background-position: center; flex-shrink: 0; }
-        .msg-content { display: flex; flex-direction: column; }
-        .msg-user { font-weight: bold; color: #fff; font-size: 1rem; }
-        .msg-text { color: var(--text-main); line-height: 1.4; margin-top: 2px; }
-        
-        /* INPUT AREA */
-        .input-wrapper { padding: 0 20px 24px; }
-        .message-input { background: #383a40; border-radius: 8px; padding: 11px; display: flex; align-items: center; }
-        .message-input input { background: transparent; border: none; color: #fff; flex-grow: 1; outline: none; font-size: 1rem; }
-        
-        button.btn-primary { width: 100%; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        :root { --bg: #313338; --sidebar: #2b2d31; --nav: #1e1f22; --accent: #5865f2; --text: #dbdee1; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; }
+        #auth { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 15px; }
+        .card { background: var(--bg); padding: 30px; border-radius: 8px; width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #1e1f22; border: none; color: #fff; border-radius: 4px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 5px 0; color: #fff; }
+        .host-btn { background: var(--accent); }
+        .join-btn { background: #4e5058; }
+        #chat-main { flex-grow: 1; display: flex; flex-direction: column; visibility: hidden; }
+        #msgs { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { background: #383a40; padding: 10px; border-radius: 8px; width: fit-content; max-width: 80%; }
+        .input-box { padding: 20px; background: var(--bg); }
+        #msgInput { background: #383a40; }
     </style>
 </head>
 <body>
 
-    <div id="auth-overlay">
-        <div class="auth-card">
-            <h2>GHOST-CORD</h2>
-            <div class="input-group">
-                <label>Username</label>
-                <input type="text" id="username" placeholder="Tristan...">
-            </div>
-            <div class="input-group">
-                <label>Invite Code (The Group ID)</label>
-                <input type="text" id="roomCode" placeholder="Ex: secret-squad-77">
-            </div>
-            <div class="input-group">
-                <label>PFP (Click to upload)</label>
-                <div class="pfp-upload" onclick="document.getElementById('pfpInput').click()">
-                    <span id="pfp-status">Click to select image</span>
-                    <input type="file" id="pfpInput" hidden accept="image/*" onchange="handlePFP(this)">
-                </div>
-            </div>
-            <button class="btn-primary" onclick="initApp()">JOIN NETWORK</button>
-        </div>
+<div id="auth">
+    <div class="card">
+        <h2>GHOST-CORD V6</h2>
+        <input type="text" id="username" placeholder="Username">
+        <input type="text" id="invite" placeholder="Invite Code (Ex: MySecretRoom)">
+        <p style="font-size: 12px; color: #949ba4;">One person clicks HOST, everyone else clicks JOIN using the SAME code.</p>
+        <button class="btn host-btn" onclick="start('host')">CREATE ROOM (HOST)</button>
+        <button class="btn join-btn" onclick="start('join')">JOIN ROOM</button>
     </div>
+</div>
 
-    <div class="app-container">
-        <div class="sidebar">
-            <div class="server-icon" title="Ghost Home">👻</div>
-            <div style="width: 32px; height: 2px; background: #444; margin: 4px 0;"></div>
-            <div class="server-icon" title="Add Group">+</div>
-        </div>
-        <div class="channel-list">
-            <div style="padding: 20px; font-weight: bold; border-bottom: 1px solid #222;">GHOST_ROOM</div>
-            <div style="padding: 10px 20px; color: var(--text-muted); font-size: 14px;"># general</div>
-        </div>
-        <div class="chat-area">
-            <div id="messages"></div>
-            <div class="input-wrapper">
-                <div class="message-input">
-                    <input type="text" id="msgInput" placeholder="Message #general" onkeypress="if(event.key==='Enter') send()">
-                </div>
-            </div>
-        </div>
+<div style="width: 72px; background: var(--nav);"></div>
+<div id="chat-main">
+    <div id="msgs"></div>
+    <div class="input-box">
+        <input type="text" id="msgInput" placeholder="Message Group..." onkeypress="if(event.key==='Enter') send()">
     </div>
+</div>
 
-    <script>
-        let peer, conn, myData = { user: '', pfp: '', room: '' }, connections = [];
-        let cryptoKey;
+<script>
+    let peer, conn, myUser, roomCode, cryptoKey;
+    let connections = [];
 
-        // 1. Handle Profile Picture
-        function handlePFP(input) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                myData.pfp = e.target.result;
-                document.getElementById('pfp-status').innerText = "Image Ready!";
-            };
-            reader.readAsDataURL(input.files[0]);
-        }
+    async function start(mode) {
+        myUser = document.getElementById('username').value;
+        roomCode = document.getElementById('invite').value.trim();
+        if(!myUser || !roomCode) return alert("Fill everything in!");
 
-        // 2. Start the App
-        async function initApp() {
-            myData.user = document.getElementById('username').value;
-            myData.room = document.getElementById('roomCode').value.trim();
-            if(!myData.user || !myData.room) return alert("Username and Invite Code required!");
+        // 1. Setup Encryption (Invite Code = Password)
+        const enc = new TextEncoder();
+        const keyMat = await crypto.subtle.importKey("raw", enc.encode(roomCode), "PBKDF2", false, ["deriveKey"]);
+        cryptoKey = await crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: enc.encode("ghost-v6"), iterations: 100000, hash: "SHA-256" },
+            keyMat, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
 
-            // Setup Encryption using the Invite Code as the password
-            const enc = new TextEncoder();
-            const keyMat = await crypto.subtle.importKey("raw", enc.encode(myData.room), "PBKDF2", false, ["deriveKey"]);
-            cryptoKey = await crypto.subtle.deriveKey(
-                { name: "PBKDF2", salt: enc.encode("ghost-cord-salt"), iterations: 100000, hash: "SHA-256" },
-                keyMat, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
-            );
+        // 2. Initialize Network
+        // HOST uses the exact roomCode. JOINER uses a random ID.
+        const peerId = (mode === 'host') ? roomCode : null;
+        peer = new Peer(peerId, { config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]} });
 
-            // Initialize PeerJS using the Room Code as the base ID
-            // This allows people to "find" each other using just the code!
-            const randomId = myData.room + "-" + Math.floor(Math.random() * 9999);
-            peer = new Peer(randomId, {
-                config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
-            });
-
-            peer.on('open', (id) => {
-                document.getElementById('auth-overlay').style.display = "none";
-                addMsg("SYSTEM", "", `Connected to room: ${myData.room}`);
-                scanForPeers();
-            });
-
-            peer.on('connection', (incoming) => {
-                setupConnection(incoming);
-            });
-        }
-
-        // 3. Scan for other people with the same room code
-        function scanForPeers() {
-            // In a real database this is easy. Here, we try to "brute force" 
-            // the IDs nearby. For now, you should still share your specific ID 
-            // for a perfect connection, but the "Invite Code" helps organize it.
-            console.log("Ready for connections at ID:", peer.id);
-            alert("SHARE THIS ID WITH YOUR FRIEND: " + peer.id);
-        }
-
-        function setupConnection(c) {
-            if(!connections.find(x => x.peer === c.peer)) {
-                connections.push(c);
-                c.on('data', async (data) => {
-                    const decrypted = await decryptMsg(data.payload, data.iv);
-                    addMsg(data.user, data.pfp, decrypted);
-                });
-            }
-        }
-
-        function connectToPeer(targetId) {
-            const c = peer.connect(targetId);
-            setupConnection(c);
-        }
-
-        async function send() {
-            const text = document.getElementById('msgInput').value;
-            if(!text) return;
-            const { payload, iv } = await encryptMsg(text);
-            const packet = { user: myData.user, pfp: myData.pfp, payload, iv };
+        peer.on('open', (id) => {
+            document.getElementById('auth').style.display = 'none';
+            document.getElementById('chat-main').style.visibility = 'visible';
+            addMsg("SYSTEM", `Online as ${myUser}. Mode: ${mode.toUpperCase()}`);
             
-            connections.forEach(c => c.send(packet));
-            addMsg(myData.user, myData.pfp, text);
-            document.getElementById('msgInput').value = "";
-        }
+            if(mode === 'join') {
+                const c = peer.connect(roomCode);
+                setupConn(c);
+            }
+        });
 
-        function addMsg(user, pfp, text) {
-            const box = document.getElementById('messages');
-            const defaultPfp = 'https://www.gravatar.com/avatar/0?d=mp';
-            const html = `
-                <div class="msg-row">
-                    <div class="msg-pfp" style="background-image: url('${pfp || defaultPfp}')"></div>
-                    <div class="msg-content">
-                        <span class="msg-user">${user}</span>
-                        <span class="msg-text">${text}</span>
-                    </div>
-                </div>
-            `;
-            box.innerHTML += html;
-            box.scrollTop = box.scrollHeight;
-        }
+        peer.on('connection', (c) => setupConn(c));
+        
+        peer.on('error', (err) => {
+            if(err.type === 'unavailable-id') alert("This Invite Code is already being HOSTED. Try clicking JOIN instead!");
+            else console.error(err);
+        });
+    }
 
-        async function encryptMsg(t) {
-            const iv = crypto.getRandomValues(new Uint8Array(12));
-            const p = await crypto.subtle.encrypt({name:"AES-GCM", iv}, cryptoKey, new TextEncoder().encode(t));
-            return { payload: p, iv };
-        }
+    function setupConn(c) {
+        c.on('open', () => {
+            if(!connections.find(x => x.peer === c.peer)) connections.push(c);
+            c.on('data', async (data) => {
+                const dec = await decryptMsg(data.payload, data.iv);
+                addMsg(data.user, dec);
+                // If I'm the host, relay to everyone else
+                if(peer.id === roomCode) {
+                    connections.forEach(other => { if(other.peer !== c.peer) other.send(data); });
+                }
+            });
+        });
+    }
 
-        async function decryptMsg(p, iv) {
-            try {
-                const d = await crypto.subtle.decrypt({name:"AES-GCM", iv}, cryptoKey, p);
-                return new TextDecoder().decode(d);
-            } catch(e) { return "[ENCRYPTION ERROR]"; }
-        }
-    </script>
+    async function send() {
+        const val = document.getElementById('msgInput').value;
+        if(!val) return;
+        const { payload, iv } = await encryptMsg(val);
+        const packet = { user: myUser, payload, iv };
+        connections.forEach(c => c.send(packet));
+        addMsg("You", val);
+        document.getElementById('msgInput').value = "";
+    }
+
+    function addMsg(u, t) {
+        const div = document.createElement('div');
+        div.className = 'msg';
+        div.innerHTML = `<strong>${u}</strong>: ${t}`;
+        document.getElementById('msgs').appendChild(div);
+        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    }
+
+    async function encryptMsg(t) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const p = await crypto.subtle.encrypt({name:"AES-GCM", iv}, cryptoKey, new TextEncoder().encode(t));
+        return { payload: p, iv };
+    }
+
+    async function decryptMsg(p, iv) {
+        try {
+            const d = await crypto.subtle.decrypt({name:"AES-GCM", iv}, cryptoKey, p);
+            return new TextDecoder().decode(d);
+        } catch(e) { return "[ENCRYPTION ERROR]"; }
+    }
+</script>
 </body>
 </html>
