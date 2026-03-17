@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matrix Key Tester</title>
+    <style>
+        body {
+            background-color: #0d0d0d;
+            color: #00ff41;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        #display {
+            font-size: 5rem;
+            border: 2px solid #00ff41;
+            padding: 20px 50px;
+            margin-bottom: 20px;
+            min-width: 200px;
+            text-align: center;
+            box-shadow: 0 0 15px #00ff41;
+        }
+        #info {
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        #history {
+            margin-top: 30px;
+            width: 80%;
+            max-height: 200px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            font-size: 0.9rem;
+            color: #008f11;
+        }
+        .active { color: #fff; text-shadow: 0 0 10px #00ff41; }
+    </style>
+</head>
+<body>
+
+    <div id="info">LAST KEY PRESSED</div>
+    <div id="display">---</div>
+    
+    <div id="info">
+        <span id="shift">[ SHIFT ]</span> 
+        <span id="ctrl">[ CTRL ]</span> 
+        <span id="alt">[ ALT ]</span>
+    </div>
+
+    <div id="history">
+        <div>Event Log (Newest first):</div>
+        <div id="log-content"></div>
+    </div>
+
+    <script>
+        const display = document.getElementById('display');
+        const logContent = document.getElementById('log-content');
+        
+        window.addEventListener('keydown', (e) => {
+            e.preventDefault(); // Stop browser shortcuts from firing
+
+            // Update Main Display
+            display.innerText = e.key === " " ? "SPACE" : e.key.toUpperCase();
+            
+            // Highlight Modifiers
+            if (e.shiftKey) document.getElementById('shift').classList.add('active');
+            if (e.ctrlKey) document.getElementById('ctrl').classList.add('active');
+            if (e.altKey) document.getElementById('alt').classList.add('active');
+
+            // Add to History
+            const entry = document.createElement('div');
+            entry.innerText = `> Key: ${e.key} | Code: ${e.code} | Location: ${e.location}`;
+            logContent.prepend(entry);
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (!e.shiftKey) document.getElementById('shift').classList.remove('active');
+            if (!e.ctrlKey) document.getElementById('ctrl').classList.remove('active');
+            if (!e.altKey) document.getElementById('alt').classList.remove('active');
+        });
+    </script>
+</body>
+</html>
