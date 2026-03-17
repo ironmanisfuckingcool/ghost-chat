@@ -2,89 +2,140 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Matrix Key Tester</title>
+    <title>GHOST_CHAT // ENCRYPTED_P2P</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body {
-            background-color: #0d0d0d;
-            color: #00ff41;
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            overflow: hidden;
-        }
-        #display {
-            font-size: 5rem;
-            border: 2px solid #00ff41;
-            padding: 20px 50px;
-            margin-bottom: 20px;
-            min-width: 200px;
-            text-align: center;
-            box-shadow: 0 0 15px #00ff41;
-        }
-        #info {
-            font-size: 1.2rem;
-            text-align: center;
-        }
-        #history {
-            margin-top: 30px;
-            width: 80%;
-            max-height: 200px;
-            overflow-y: auto;
-            border-top: 1px solid #333;
-            padding-top: 10px;
-            font-size: 0.9rem;
-            color: #008f11;
-        }
-        .active { color: #fff; text-shadow: 0 0 10px #00ff41; }
+        :root { --neon: #00ff41; --bg: #050505; --panel: #0a0a0a; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #header { padding: 15px; border-bottom: 2px solid var(--neon); display: flex; justify-content: space-between; align-items: center; background: var(--panel); }
+        #chat-box { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { border-left: 3px solid var(--neon); padding: 5px 15px; animation: fadeIn 0.3s; }
+        .system { color: #888; font-style: italic; font-size: 0.85rem; }
+        #controls { padding: 20px; background: var(--panel); border-top: 2px solid var(--neon); display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+        input { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; outline: none; }
+        button { background: var(--neon); color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        button:hover { background: #fff; }
+        #setup-overlay { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
     </style>
 </head>
 <body>
 
-    <div id="info">LAST KEY PRESSED</div>
-    <div id="display">---</div>
-    
-    <div id="info">
-        <span id="shift">[ SHIFT ]</span> 
-        <span id="ctrl">[ CTRL ]</span> 
-        <span id="alt">[ ALT ]</span>
-    </div>
+<div id="setup-overlay">
+    <h1>GHOST_CHAT_V3</h1>
+    <p>Secure P2P Encrypted Group Network</p>
+    <input type="text" id="username" placeholder="CHOOSE USERNAME" style="width: 250px; margin-bottom: 10px;">
+    <input type="password" id="secret" placeholder="GROUP SECRET KEY" style="width: 250px; margin-bottom: 20px;">
+    <button onclick="startNetwork()">INITIALIZE</button>
+</div>
 
-    <div id="history">
-        <div>Event Log (Newest first):</div>
-        <div id="log-content"></div>
-    </div>
+<div id="header">
+    <div id="user-info">USER: <span id="display-name">---</span></div>
+    <div id="peer-info">PEER_ID: <span id="my-id">CONNECTING...</span></div>
+    <button onclick="downloadLogs()" style="font-size: 0.7rem;">SAVE_LOGS</button>
+</div>
 
-    <script>
-        const display = document.getElementById('display');
-        const logContent = document.getElementById('log-content');
-        
-        window.addEventListener('keydown', (e) => {
-            e.preventDefault(); // Stop browser shortcuts from firing
+<div id="chat-box"></div>
 
-            // Update Main Display
-            display.innerText = e.key === " " ? "SPACE" : e.key.toUpperCase();
-            
-            // Highlight Modifiers
-            if (e.shiftKey) document.getElementById('shift').classList.add('active');
-            if (e.ctrlKey) document.getElementById('ctrl').classList.add('active');
-            if (e.altKey) document.getElementById('alt').classList.add('active');
+<div id="controls">
+    <input type="text" id="targetId" placeholder="PASTE FRIEND'S ID TO JOIN GROUP">
+    <button onclick="connectToPeer()">ADD_PEER</button>
+    <input type="text" id="msgInput" placeholder="TYPE ENCRYPTED MESSAGE..." style="grid-column: span 1;">
+    <button onclick="sendMessage()">SEND</button>
+</div>
 
-            // Add to History
-            const entry = document.createElement('div');
-            entry.innerText = `> Key: ${e.key} | Code: ${e.code} | Location: ${e.location}`;
-            logContent.prepend(entry);
+<script>
+    let peer = null;
+    let connections = [];
+    let myUser = "";
+    let cryptoKey = null;
+
+    async function startNetwork() {
+        myUser = document.getElementById('username').value;
+        const pass = document.getElementById('secret').value;
+        if (!myUser || !pass) return alert("Username and Secret Key required.");
+
+        // Setup Encryption Key
+        const enc = new TextEncoder();
+        const keyMat = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+        cryptoKey = await crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: enc.encode("ghost-salt-2026"), iterations: 100000, hash: "SHA-256" },
+            keyMat, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+        );
+
+        peer = new Peer();
+        peer.on('open', (id) => {
+            document.getElementById('my-id').innerText = id;
+            document.getElementById('display-name').innerText = myUser;
+            document.getElementById('setup-overlay').style.display = "none";
+            log("SYSTEM", "NETWORK ONLINE. ENCRYPTION ACTIVE.");
         });
 
-        window.addEventListener('keyup', (e) => {
-            if (!e.shiftKey) document.getElementById('shift').classList.remove('active');
-            if (!e.ctrlKey) document.getElementById('ctrl').classList.remove('active');
-            if (!e.altKey) document.getElementById('alt').classList.remove('active');
+        peer.on('connection', (conn) => setupConn(conn));
+    }
+
+    function connectToPeer() {
+        const id = document.getElementById('targetId').value;
+        if (id) setupConn(peer.connect(id));
+    }
+
+    function setupConn(conn) {
+        conn.on('open', () => {
+            if (!connections.find(c => c.peer === conn.peer)) connections.push(conn);
+            log("SYSTEM", `PEER_CONNECTED: ${conn.peer}`);
+            conn.on('data', async (data) => {
+                const decrypted = await decryptMsg(data.payload, data.iv);
+                log(data.user, decrypted);
+                relay(data); // Forward to others
+            });
         });
-    </script>
+    }
+
+    async function sendMessage() {
+        const text = document.getElementById('msgInput').value;
+        if (!text) return;
+        const { payload, iv } = await encryptMsg(text);
+        const data = { user: myUser, payload, iv };
+        connections.forEach(c => c.send(data));
+        log("YOU", text);
+        document.getElementById('msgInput').value = "";
+    }
+
+    async function encryptMsg(text) {
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const encoded = new TextEncoder().encode(text);
+        const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, encoded);
+        return { payload: encrypted, iv: iv };
+    }
+
+    async function decryptMsg(payload, iv) {
+        try {
+            const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, payload);
+            return new TextDecoder().decode(decrypted);
+        } catch (e) { return "[DECRYPTION_FAILED: WRONG_KEY]"; }
+    }
+
+    function relay(data) {
+        connections.forEach(c => { if (c.peer !== data.sender) c.send(data); });
+    }
+
+    function log(user, text) {
+        const box = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.className = "msg";
+        div.innerHTML = `<strong>${user}</strong>: ${text}`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function downloadLogs() {
+        const content = document.getElementById('chat-box').innerText;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `ghost_chat_${Date.now()}.txt`;
+        a.click();
+    }
+</script>
 </body>
 </html>
