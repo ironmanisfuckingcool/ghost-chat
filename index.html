@@ -2,116 +2,280 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GHOST-CORD // V6_STABLE</title>
+    <title>GHOST-CORD // V7_TITAN</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #313338; --sidebar: #2b2d31; --nav: #1e1f22; --accent: #5865f2; --text: #dbdee1; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; height: 100vh; }
-        #auth { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 15px; }
-        .card { background: var(--bg); padding: 30px; border-radius: 8px; width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        input { width: 100%; padding: 12px; margin: 10px 0; background: #1e1f22; border: none; color: #fff; border-radius: 4px; box-sizing: border-box; }
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 5px 0; color: #fff; }
+        :root { --bg: #313338; --sidebar: #1e1f22; --channels: #2b2d31; --accent: #5865f2; --text: #dbdee1; --hover: #3f4147; --danger: #da373c; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* AUTH SCREEN */
+        #auth { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 100; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .card { background: var(--bg); padding: 30px; border-radius: 8px; width: 350px; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #1e1f22; border: none; color: #fff; border-radius: 4px; box-sizing: border-box; outline: none; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin: 5px 0; color: #fff; transition: 0.2s; }
+        .btn:hover { filter: brightness(1.2); }
         .host-btn { background: var(--accent); }
         .join-btn { background: #4e5058; }
-        #chat-main { flex-grow: 1; display: flex; flex-direction: column; visibility: hidden; }
-        #msgs { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { background: #383a40; padding: 10px; border-radius: 8px; width: fit-content; max-width: 80%; }
-        .input-box { padding: 20px; background: var(--bg); }
-        #msgInput { background: #383a40; }
+
+        /* LAYOUT */
+        #app { display: none; width: 100%; height: 100%; }
+        .sidebar { width: 72px; background: var(--sidebar); display: flex; flex-direction: column; align-items: center; padding-top: 12px; gap: 10px; z-index: 10; }
+        .icon { width: 48px; height: 48px; background: var(--channels); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 20px; }
+        .icon:hover, .icon.active { border-radius: 16px; background: var(--accent); color: white; }
+        
+        .channel-list { width: 240px; background: var(--channels); padding: 20px 10px; display: flex; flex-direction: column; gap: 5px; }
+        .chan-item { padding: 8px; border-radius: 4px; cursor: pointer; color: #949ba4; font-weight: 500; }
+        .chan-item:hover, .chan-item.active { background: var(--hover); color: #fff; }
+
+        .main-view { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+        .view-pane { display: none; flex-direction: column; height: 100%; }
+        .view-pane.active { display: flex; }
+
+        /* CHAT UI */
+        .chat-history { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { display: flex; flex-direction: column; }
+        .msg-header { display: flex; align-items: baseline; gap: 10px; }
+        .msg-user { font-weight: bold; color: #fff; }
+        .msg-time { font-size: 0.75rem; color: #949ba4; }
+        .msg-content { margin-top: 4px; line-height: 1.4; }
+        .input-area { padding: 20px; background: var(--bg); }
+        .chat-input { background: #383a40; border-radius: 8px; padding: 15px; width: 100%; border: none; color: #fff; box-sizing: border-box; outline: none; }
+
+        /* VOICE UI */
+        .voice-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 20px; }
+        .avatar-ring { width: 150px; height: 150px; border-radius: 50%; background: var(--sidebar); border: 4px solid var(--hover); display: flex; align-items: center; justify-content: center; font-size: 40px; transition: 0.2s; }
+        .avatar-ring.speaking { border-color: #23a559; box-shadow: 0 0 20px rgba(35, 165, 89, 0.4); }
+        
+        /* AI UI */
+        .ai-setup { background: #2b2d31; padding: 20px; border-radius: 8px; margin: 20px; border: 1px solid var(--accent); }
     </style>
 </head>
 <body>
 
 <div id="auth">
     <div class="card">
-        <h2>GHOST-CORD V6</h2>
+        <h2>GHOST-CORD V7</h2>
         <input type="text" id="username" placeholder="Username">
-        <input type="text" id="invite" placeholder="Invite Code (Ex: MySecretRoom)">
-        <p style="font-size: 12px; color: #949ba4;">One person clicks HOST, everyone else clicks JOIN using the SAME code.</p>
-        <button class="btn host-btn" onclick="start('host')">CREATE ROOM (HOST)</button>
-        <button class="btn join-btn" onclick="start('join')">JOIN ROOM</button>
+        <input type="text" id="invite" placeholder="Secret Invite Code">
+        <button class="btn host-btn" onclick="startNetwork('host')">HOST SERVER</button>
+        <button class="btn join-btn" onclick="startNetwork('join')">JOIN SERVER</button>
     </div>
 </div>
 
-<div style="width: 72px; background: var(--nav);"></div>
-<div id="chat-main">
-    <div id="msgs"></div>
-    <div class="input-box">
-        <input type="text" id="msgInput" placeholder="Message Group..." onkeypress="if(event.key==='Enter') send()">
+<div id="app">
+    <div class="sidebar">
+        <div class="icon active" title="Home Server" onclick="switchView('text-view')">👻</div>
+        <div style="width: 32px; height: 2px; background: #444;"></div>
+        <div class="icon" title="AI Assistant" onclick="switchView('ai-view')" style="background: #10a37f;">+</div>
+    </div>
+
+    <div class="channel-list">
+        <div style="font-weight: 900; color: #fff; margin-bottom: 15px; padding-left: 8px;">GHOST NETWORK</div>
+        <div class="chan-item active" onclick="switchView('text-view')"># general-chat</div>
+        <div class="chan-item" onclick="switchView('voice-view')">🔊 Voice Comms</div>
+        <div class="chan-item" style="color: #10a37f;" onclick="switchView('ai-view')">🤖 AI Terminal</div>
+    </div>
+
+    <div class="main-view">
+        
+        <div id="text-view" class="view-pane active">
+            <div id="chat-box" class="chat-history"></div>
+            <div class="input-area">
+                <input type="text" id="text-input" class="chat-input" placeholder="Message #general-chat" onkeypress="if(event.key==='Enter') sendText()">
+            </div>
+        </div>
+
+        <div id="voice-view" class="view-pane">
+            <div class="voice-container">
+                <h2>Secure Voice Channel</h2>
+                <div id="voice-ring" class="avatar-ring">🎙️</div>
+                <div id="voice-status" style="color: #949ba4;">Mic: Offline</div>
+                <div>
+                    <button class="btn host-btn" style="width: 200px; background: #23a559;" onclick="joinVoice()">CONNECT MIC</button>
+                    <button class="btn join-btn" style="width: 200px; background: var(--danger);" onclick="endVoice()">DISCONNECT</button>
+                </div>
+                <audio id="remote-audio" autoplay></audio>
+            </div>
+        </div>
+
+        <div id="ai-view" class="view-pane">
+            <div class="ai-setup" id="ai-config">
+                <h3 style="margin-top:0; color: #10a37f;">Initialize AI Engine</h3>
+                <p style="font-size: 14px; color: #949ba4;">Paste your Google Gemini API Key below. It saves locally to your browser and is never shared.</p>
+                <input type="password" id="api-key" placeholder="AIzaSy...">
+                <button class="btn host-btn" style="background: #10a37f;" onclick="saveApiKey()">SAVE KEY</button>
+            </div>
+            <div id="ai-chat-box" class="chat-history"></div>
+            <div class="input-area">
+                <input type="text" id="ai-input" class="chat-input" placeholder="Ask the AI..." onkeypress="if(event.key==='Enter') askAI()">
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
     let peer, conn, myUser, roomCode, cryptoKey;
     let connections = [];
+    let localStream, currentCall;
 
-    async function start(mode) {
+    // Load saved data
+    document.getElementById('username').value = localStorage.getItem('gc_user') || '';
+    document.getElementById('api-key').value = localStorage.getItem('gc_apikey') || '';
+    if(localStorage.getItem('gc_apikey')) document.getElementById('ai-config').style.display = 'none';
+
+    // UI SWITCHER
+    function switchView(viewId) {
+        document.querySelectorAll('.view-pane').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    }
+
+    function saveApiKey() {
+        const key = document.getElementById('api-key').value;
+        if(key) {
+            localStorage.setItem('gc_apikey', key);
+            document.getElementById('ai-config').style.display = 'none';
+            addAiMsg("SYSTEM", "API Key saved locally. Engine ready.");
+        }
+    }
+
+    // NETWORK INITIALIZATION
+    async function startNetwork(mode) {
         myUser = document.getElementById('username').value;
         roomCode = document.getElementById('invite').value.trim();
-        if(!myUser || !roomCode) return alert("Fill everything in!");
+        if(!myUser || !roomCode) return alert("Fill in Username and Invite Code!");
+        localStorage.setItem('gc_user', myUser);
 
-        // 1. Setup Encryption (Invite Code = Password)
+        // Encryption
         const enc = new TextEncoder();
         const keyMat = await crypto.subtle.importKey("raw", enc.encode(roomCode), "PBKDF2", false, ["deriveKey"]);
         cryptoKey = await crypto.subtle.deriveKey(
-            { name: "PBKDF2", salt: enc.encode("ghost-v6"), iterations: 100000, hash: "SHA-256" },
+            { name: "PBKDF2", salt: enc.encode("ghost-v7"), iterations: 100000, hash: "SHA-256" },
             keyMat, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
         );
 
-        // 2. Initialize Network
-        // HOST uses the exact roomCode. JOINER uses a random ID.
         const peerId = (mode === 'host') ? roomCode : null;
         peer = new Peer(peerId, { config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]} });
 
         peer.on('open', (id) => {
             document.getElementById('auth').style.display = 'none';
-            document.getElementById('chat-main').style.visibility = 'visible';
-            addMsg("SYSTEM", `Online as ${myUser}. Mode: ${mode.toUpperCase()}`);
-            
-            if(mode === 'join') {
-                const c = peer.connect(roomCode);
-                setupConn(c);
-            }
+            document.getElementById('app').style.display = 'flex';
+            addChatMsg("SYSTEM", `Encrypted Tunnel Online. Mode: ${mode.toUpperCase()}`);
+            if(mode === 'join') setupConn(peer.connect(roomCode));
         });
 
         peer.on('connection', (c) => setupConn(c));
         
-        peer.on('error', (err) => {
-            if(err.type === 'unavailable-id') alert("This Invite Code is already being HOSTED. Try clicking JOIN instead!");
-            else console.error(err);
+        // Handle incoming Voice Calls
+        peer.on('call', async (call) => {
+            if(confirm("Incoming Voice Comm. Accept?")) {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                call.answer(localStream);
+                handleVoiceStream(call);
+            }
         });
     }
 
+    // TEXT CHAT LOGIC
     function setupConn(c) {
         c.on('open', () => {
             if(!connections.find(x => x.peer === c.peer)) connections.push(c);
             c.on('data', async (data) => {
                 const dec = await decryptMsg(data.payload, data.iv);
-                addMsg(data.user, dec);
-                // If I'm the host, relay to everyone else
-                if(peer.id === roomCode) {
-                    connections.forEach(other => { if(other.peer !== c.peer) other.send(data); });
-                }
+                addChatMsg(data.user, dec);
+                if(peer.id === roomCode) connections.forEach(other => { if(other.peer !== c.peer) other.send(data); });
             });
         });
     }
 
-    async function send() {
-        const val = document.getElementById('msgInput').value;
+    async function sendText() {
+        const val = document.getElementById('text-input').value;
         if(!val) return;
         const { payload, iv } = await encryptMsg(val);
-        const packet = { user: myUser, payload, iv };
-        connections.forEach(c => c.send(packet));
-        addMsg("You", val);
-        document.getElementById('msgInput').value = "";
+        connections.forEach(c => c.send({ user: myUser, payload, iv }));
+        addChatMsg(myUser, val);
+        document.getElementById('text-input').value = "";
     }
 
-    function addMsg(u, t) {
-        const div = document.createElement('div');
-        div.className = 'msg';
-        div.innerHTML = `<strong>${u}</strong>: ${t}`;
-        document.getElementById('msgs').appendChild(div);
-        document.getElementById('msgs').scrollTop = document.getElementById('msgs').scrollHeight;
+    // VOICE CHAT LOGIC
+    async function joinVoice() {
+        try {
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            document.getElementById('voice-status').innerText = "Mic: LIVE";
+            document.getElementById('voice-status').style.color = "#23a559";
+            document.getElementById('voice-ring').classList.add('speaking');
+            
+            // If joiner, call the host
+            if(peer.id !== roomCode) {
+                const call = peer.call(roomCode, localStream);
+                handleVoiceStream(call);
+            }
+        } catch(e) { alert("Microphone access denied or not found."); }
+    }
+
+    function handleVoiceStream(call) {
+        currentCall = call;
+        call.on('stream', (remoteStream) => {
+            document.getElementById('remote-audio').srcObject = remoteStream;
+            addChatMsg("SYSTEM", "Secure Voice Bridge Established.");
+        });
+    }
+
+    function endVoice() {
+        if(localStream) localStream.getTracks().forEach(t => t.stop());
+        if(currentCall) currentCall.close();
+        document.getElementById('voice-status').innerText = "Mic: Offline";
+        document.getElementById('voice-status').style.color = "#949ba4";
+        document.getElementById('voice-ring').classList.remove('speaking');
+    }
+
+    // AI CHATBOT LOGIC
+    async function askAI() {
+        const input = document.getElementById('ai-input');
+        const prompt = input.value;
+        const key = localStorage.getItem('gc_apikey');
+        if(!prompt) return;
+        if(!key) return alert("Please enter your API key above first.");
+
+        addAiMsg(myUser, prompt);
+        input.value = "Thinking...";
+        input.disabled = true;
+
+        try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+            const res = await fetch(url, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await res.json();
+            const reply = data.candidates[0].content.parts[0].text;
+            addAiMsg("🤖 GEMINI", reply);
+        } catch (e) {
+            addAiMsg("SYSTEM ERROR", "Failed to connect to AI. Check API Key.");
+        }
+        
+        input.value = "";
+        input.disabled = false;
+        input.focus();
+    }
+
+    // HELPERS
+    function addChatMsg(u, t) { appendMsg('chat-box', u, t); }
+    function addAiMsg(u, t) { appendMsg('ai-chat-box', u, t); }
+
+    function appendMsg(boxId, user, text) {
+        const box = document.getElementById(boxId);
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const html = `
+            <div class="msg">
+                <div class="msg-header">
+                    <span class="msg-user" style="color: ${user==='SYSTEM'?'#da373c':(user==='🤖 GEMINI'?'#10a37f':'#fff')}">${user}</span>
+                    <span class="msg-time">${time}</span>
+                </div>
+                <div class="msg-content">${text}</div>
+            </div>`;
+        box.innerHTML += html;
+        box.scrollTop = box.scrollHeight;
     }
 
     async function encryptMsg(t) {
@@ -119,12 +283,9 @@
         const p = await crypto.subtle.encrypt({name:"AES-GCM", iv}, cryptoKey, new TextEncoder().encode(t));
         return { payload: p, iv };
     }
-
     async function decryptMsg(p, iv) {
-        try {
-            const d = await crypto.subtle.decrypt({name:"AES-GCM", iv}, cryptoKey, p);
-            return new TextDecoder().decode(d);
-        } catch(e) { return "[ENCRYPTION ERROR]"; }
+        try { const d = await crypto.subtle.decrypt({name:"AES-GCM", iv}, cryptoKey, p); return new TextDecoder().decode(d); } 
+        catch(e) { return "[ENCRYPT ERROR]"; }
     }
 </script>
 </body>
