@@ -235,10 +235,10 @@
         const prompt = input.value;
         const key = localStorage.getItem('gc_apikey');
         if(!prompt) return;
-        if(!key) return alert("Please enter your API key above first.");
+        if(!key) return alert("No API Key found. Run the console command to reset!");
 
         addAiMsg(myUser, prompt);
-        input.value = "Thinking...";
+        input.value = "Consulting the Oracle...";
         input.disabled = true;
 
         try {
@@ -247,12 +247,25 @@
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
+
             const data = await res.json();
-            const reply = data.candidates[0].content.parts[0].text;
-            addAiMsg("🤖 GEMINI", reply);
+
+            // This prints the ACTUAL error from Google if it fails
+            if (data.error) {
+                addAiMsg("SYSTEM_ERROR", `Google Error: ${data.error.message} (Code: ${data.error.code})`);
+                console.log("Full Error Data:", data.error);
+            } else {
+                const reply = data.candidates[0].content.parts[0].text;
+                addAiMsg("🤖 GEMINI", reply);
+            }
         } catch (e) {
-            addAiMsg("SYSTEM ERROR", "Failed to connect to AI. Check API Key.");
+            addAiMsg("SYSTEM_CRITICAL", "Network Error: Google is blocked or your internet is down.");
         }
+        
+        input.value = "";
+        input.disabled = false;
+        input.focus();
+    }
         
         input.value = "";
         input.disabled = false;
